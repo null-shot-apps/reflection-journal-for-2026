@@ -2,83 +2,277 @@
 
 import { useEffect, useState } from 'react';
 
-const slogans = [
-  "Turn chats into apps",
-  "Prompt. Ship. Repeat.",
-  "Build anything from a chat",
-  "Ideas → Apps, instantly",
-  "From zero to MVP in minutes",
-  "Your cofounder in the command line",
-  "Draft, iterate, deploy",
-  "Ship faster than you can type",
-  "Design in text, deliver in code",
-  "Dream it. Prompt it. Run it.",
-  "Chat-native app building",
-  "From prompt to product",
-  "One prompt, infinite apps",
-  "Stop scaffolding. Start shipping.",
-  "Prototype at the speed of thought",
-  "Make conversations executable"
+type Reflection = {
+  id: string;
+  promptId: number;
+  text: string;
+  timestamp: number;
+};
+
+type Mode = 'home' | 'journey' | 'explore' | 'reflections';
+
+const prompts = [
+  { id: 1, category: 'What You Love', question: 'What activities make you lose track of time?', color: 'from-rose-500 to-pink-500' },
+  { id: 2, category: 'What You Love', question: 'What brings you genuine joy, even on difficult days?', color: 'from-rose-500 to-pink-500' },
+  { id: 3, category: 'What You Love', question: 'If money were no object, how would you spend your days?', color: 'from-rose-500 to-pink-500' },
+  { id: 4, category: 'What You\'re Good At', question: 'What do people often ask for your help with?', color: 'from-purple-500 to-indigo-500' },
+  { id: 5, category: 'What You\'re Good At', question: 'What skills come naturally to you that others find challenging?', color: 'from-purple-500 to-indigo-500' },
+  { id: 6, category: 'What You\'re Good At', question: 'What accomplishment are you most proud of?', color: 'from-purple-500 to-indigo-500' },
+  { id: 7, category: 'What the World Needs', question: 'What problems in the world deeply concern you?', color: 'from-blue-500 to-cyan-500' },
+  { id: 8, category: 'What the World Needs', question: 'How do you want to make a difference in others\' lives?', color: 'from-blue-500 to-cyan-500' },
+  { id: 9, category: 'What the World Needs', question: 'What change would you like to see in your community?', color: 'from-blue-500 to-cyan-500' },
+  { id: 10, category: 'What You Can Be Paid For', question: 'What value do you provide that people would pay for?', color: 'from-emerald-500 to-teal-500' },
+  { id: 11, category: 'What You Can Be Paid For', question: 'What professional skills have you developed over time?', color: 'from-emerald-500 to-teal-500' },
+  { id: 12, category: 'What You Can Be Paid For', question: 'What unique combination of skills do you offer?', color: 'from-emerald-500 to-teal-500' },
 ];
 
-export default function Landing() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
+export default function IkigaiJournal() {
+  const [mode, setMode] = useState<Mode>('home');
+  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
+  const [reflectionText, setReflectionText] = useState('');
+  const [reflections, setReflections] = useState<Reflection[]>([]);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [unlockedPrompts, setUnlockedPrompts] = useState(1);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIsVisible(false);
-      setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % slogans.length);
-        setIsVisible(true);
-      }, 400);
-    }, 2800);
-
-    return () => clearInterval(interval);
+    const saved = localStorage.getItem('ikigai-reflections');
+    const savedUnlocked = localStorage.getItem('ikigai-unlocked');
+    if (saved) {
+      setReflections(JSON.parse(saved));
+    }
+    if (savedUnlocked) {
+      setUnlockedPrompts(parseInt(savedUnlocked));
+    }
   }, []);
 
+  const saveReflection = () => {
+    if (!reflectionText.trim()) return;
+    
+    const newReflection: Reflection = {
+      id: Date.now().toString(),
+      promptId: prompts[currentPromptIndex].id,
+      text: reflectionText,
+      timestamp: Date.now(),
+    };
+    
+    const updated = [...reflections, newReflection];
+    setReflections(updated);
+    localStorage.setItem('ikigai-reflections', JSON.stringify(updated));
+    
+    if (mode === 'journey' && currentPromptIndex + 1 === unlockedPrompts && unlockedPrompts < prompts.length) {
+      const newUnlocked = unlockedPrompts + 1;
+      setUnlockedPrompts(newUnlocked);
+      localStorage.setItem('ikigai-unlocked', newUnlocked.toString());
+    }
+    
+    setReflectionText('');
+    setIsFlipped(false);
+    
+    if (currentPromptIndex < prompts.length - 1) {
+      setCurrentPromptIndex(currentPromptIndex + 1);
+    }
+  };
+
+  const nextCard = () => {
+    const maxIndex = mode === 'journey' ? unlockedPrompts - 1 : prompts.length - 1;
+    if (currentPromptIndex < maxIndex) {
+      setCurrentPromptIndex(currentPromptIndex + 1);
+      setIsFlipped(false);
+      setReflectionText('');
+    }
+  };
+
+  const prevCard = () => {
+    if (currentPromptIndex > 0) {
+      setCurrentPromptIndex(currentPromptIndex - 1);
+      setIsFlipped(false);
+      setReflectionText('');
+    }
+  };
+
+  const currentPrompt = prompts[currentPromptIndex];
+
+  if (mode === 'home') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-purple-50 flex items-center justify-center p-6">
+        <div className="max-w-2xl w-full text-center space-y-8">
+          <div className="space-y-4">
+            <h1 className="text-5xl md:text-6xl font-bold text-gray-800 tracking-tight">
+              My Little Ikigai Journal
+            </h1>
+            <p className="text-xl text-gray-600 max-w-lg mx-auto">
+              A guided journey to discover your purpose through reflection
+            </p>
+          </div>
+          
+          <div className="grid gap-4 max-w-md mx-auto pt-8">
+            <button
+              onClick={() => setMode('journey')}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-2xl text-lg font-semibold hover:shadow-xl transition-all hover:scale-105"
+            >
+              🌱 Start Journey Mode
+            </button>
+            <button
+              onClick={() => setMode('explore')}
+              className="bg-white text-gray-800 px-8 py-4 rounded-2xl text-lg font-semibold border-2 border-gray-200 hover:shadow-xl transition-all hover:scale-105"
+            >
+              🎨 Free Exploration
+            </button>
+            <button
+              onClick={() => setMode('reflections')}
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-8 py-4 rounded-2xl text-lg font-semibold hover:shadow-xl transition-all hover:scale-105"
+            >
+              📖 My Reflections ({reflections.length})
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === 'reflections') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-gray-800">My Reflections</h2>
+            <button
+              onClick={() => setMode('home')}
+              className="px-6 py-2 bg-white rounded-xl text-gray-700 font-medium hover:shadow-lg transition-all"
+            >
+              ← Home
+            </button>
+          </div>
+          
+          {reflections.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-xl text-gray-500">No reflections yet. Start your journey!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reflections.map((reflection) => {
+                const prompt = prompts.find(p => p.id === reflection.promptId);
+                return (
+                  <div key={reflection.id} className="bg-white rounded-2xl p-6 shadow-lg">
+                    <div className="flex items-start gap-4">
+                      <div className={`w-2 h-full bg-gradient-to-b ${prompt?.color} rounded-full`} />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-500 mb-2">{prompt?.category}</p>
+                        <p className="text-lg font-medium text-gray-800 mb-3">{prompt?.question}</p>
+                        <p className="text-gray-700 leading-relaxed">{reflection.text}</p>
+                        <p className="text-sm text-gray-400 mt-3">
+                          {new Date(reflection.timestamp).toLocaleDateString('en-US', { 
+                            month: 'long', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-black text-white">
-      {/* Enhanced animated aurora background layers */}
-      <div className="absolute inset-0 bg-aurora-layer-1" />
-      <div className="absolute inset-0 bg-aurora-layer-2" />
-      <div className="absolute inset-0 bg-aurora-layer-3" />
-      
-      {/* Floating particles overlay */}
-      <div className="absolute inset-0 bg-particles" />
-      
-      {/* Main content - centered */}
-      <main className="relative z-10 h-full flex flex-col items-center justify-center px-6">
-        <h1 className="text-center text-[clamp(28px,6vw,64px)] font-medium tracking-tight mb-4">
-          Turn Chats into Apps
-        </h1>
-        
-        {/* Rotating slogans */}
-        <div className="mt-4 h-8 md:h-10 overflow-hidden flex items-center justify-center">
-          <span
-            className={`inline-block text-center text-[clamp(18px,3vw,32px)] font-light transition-all duration-[400ms] ease-in-out ${
-              isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-amber-50 flex items-center justify-center p-6">
+      <div className="max-w-2xl w-full">
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => setMode('home')}
+            className="px-6 py-2 bg-white rounded-xl text-gray-700 font-medium hover:shadow-lg transition-all"
+          >
+            ← Home
+          </button>
+          <div className="text-sm font-medium text-gray-600">
+            Card {currentPromptIndex + 1} of {mode === 'journey' ? unlockedPrompts : prompts.length}
+          </div>
+        </div>
+
+        <div className="perspective-1000">
+          <div
+            className={`relative w-full h-[500px] transition-transform duration-700 transform-style-3d ${
+              isFlipped ? 'rotate-y-180' : ''
             }`}
           >
-            {slogans[currentIndex]}
-          </span>
+            {/* Front of card - Prompt */}
+            <div className="absolute inset-0 backface-hidden">
+              <div className={`h-full bg-gradient-to-br ${currentPrompt.color} rounded-3xl shadow-2xl p-8 flex flex-col justify-between text-white`}>
+                <div>
+                  <p className="text-sm font-semibold opacity-90 mb-4">{currentPrompt.category}</p>
+                  <h2 className="text-3xl md:text-4xl font-bold leading-tight">{currentPrompt.question}</h2>
+                </div>
+                
+                <button
+                  onClick={() => setIsFlipped(true)}
+                  className="bg-white/20 backdrop-blur-sm hover:bg-white/30 px-8 py-4 rounded-2xl font-semibold transition-all"
+                >
+                  Reflect on this →
+                </button>
+              </div>
+            </div>
+
+            {/* Back of card - Reflection input */}
+            <div className="absolute inset-0 backface-hidden rotate-y-180">
+              <div className="h-full bg-white rounded-3xl shadow-2xl p-8 flex flex-col">
+                <p className="text-sm font-semibold text-gray-500 mb-2">{currentPrompt.category}</p>
+                <p className="text-lg font-medium text-gray-800 mb-4">{currentPrompt.question}</p>
+                
+                <textarea
+                  value={reflectionText}
+                  onChange={(e) => setReflectionText(e.target.value)}
+                  placeholder="Write your reflection here..."
+                  className="flex-1 w-full p-4 border-2 border-gray-200 rounded-2xl resize-none focus:outline-none focus:border-purple-400 text-gray-700"
+                />
+                
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => setIsFlipped(false)}
+                    className="flex-1 px-6 py-3 bg-gray-100 rounded-xl font-semibold text-gray-700 hover:bg-gray-200 transition-all"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    onClick={saveReflection}
+                    disabled={!reflectionText.trim()}
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save & Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </main>
-      
-      {/* Start Prompting arrow pointing left - bottom left */}
-      <div className="absolute left-6 md:left-8 bottom-[5%] z-20 flex items-center gap-3 arrow-point-left">
-        <div className="flex items-center gap-2 text-white/80 font-medium text-sm md:text-base">
-          <svg 
-            className="w-5 h-5 md:w-6 md:h-6 animate-bounce-horizontal" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
+
+        {/* Navigation */}
+        <div className="flex justify-between mt-6">
+          <button
+            onClick={prevCard}
+            disabled={currentPromptIndex === 0}
+            className="px-6 py-3 bg-white rounded-xl font-semibold text-gray-700 hover:shadow-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          <span>Start prompting</span>
+            ← Previous
+          </button>
+          <button
+            onClick={nextCard}
+            disabled={
+              mode === 'journey' 
+                ? currentPromptIndex >= unlockedPrompts - 1
+                : currentPromptIndex >= prompts.length - 1
+            }
+            className="px-6 py-3 bg-white rounded-xl font-semibold text-gray-700 hover:shadow-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Next →
+          </button>
         </div>
       </div>
     </div>
   );
 }
+
