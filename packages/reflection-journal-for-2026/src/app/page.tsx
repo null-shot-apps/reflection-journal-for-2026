@@ -7,6 +7,11 @@ type Reflection = {
   promptId: number;
   text: string;
   timestamp: number;
+  date: string;
+};
+
+type DailyProgress = {
+  [date: string]: number;
 };
 
 type Mode = 'home' | 'journey' | 'explore' | 'reflections';
@@ -33,42 +38,71 @@ export default function IkigaiJournal() {
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [isFlipped, setIsFlipped] = useState(false);
   const [unlockedPrompts, setUnlockedPrompts] = useState(1);
+  const [dailyProgress, setDailyProgress] = useState<DailyProgress>({});
+  const [todayPromptIndex, setTodayPromptIndex] = useState(0);
+  const [hasReflectedToday, setHasReflectedToday] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('ikigai-reflections');
     const savedUnlocked = localStorage.getItem('ikigai-unlocked');
+    const savedDaily = localStorage.getItem('ikigai-daily-progress');
+    
     if (saved) {
       setReflections(JSON.parse(saved));
     }
     if (savedUnlocked) {
       setUnlockedPrompts(parseInt(savedUnlocked));
     }
+    if (savedDaily) {
+      setDailyProgress(JSON.parse(savedDaily));
+    }
+    
+    const today = new Date().toISOString().split('T')[0];
+    const progress = savedDaily ? JSON.parse(savedDaily) : {};
+    
+    if (progress[today] !== undefined) {
+      setTodayPromptIndex(progress[today]);
+      setHasReflectedToday(true);
+    } else {
+      const lastCompletedDay = Object.keys(progress).length;
+      setTodayPromptIndex(lastCompletedDay % prompts.length);
+      setHasReflectedToday(false);
+    }
   }, []);
 
   const saveReflection = () => {
     if (!reflectionText.trim()) return;
     
+    const today = new Date().toISOString().split('T')[0];
     const newReflection: Reflection = {
       id: Date.now().toString(),
       promptId: prompts[currentPromptIndex].id,
       text: reflectionText,
       timestamp: Date.now(),
+      date: today,
     };
     
     const updated = [...reflections, newReflection];
     setReflections(updated);
     localStorage.setItem('ikigai-reflections', JSON.stringify(updated));
     
-    if (mode === 'journey' && currentPromptIndex + 1 === unlockedPrompts && unlockedPrompts < prompts.length) {
-      const newUnlocked = unlockedPrompts + 1;
-      setUnlockedPrompts(newUnlocked);
-      localStorage.setItem('ikigai-unlocked', newUnlocked.toString());
+    if (mode === 'journey') {
+      const updatedProgress = { ...dailyProgress, [today]: currentPromptIndex };
+      setDailyProgress(updatedProgress);
+      localStorage.setItem('ikigai-daily-progress', JSON.stringify(updatedProgress));
+      setHasReflectedToday(true);
+      
+      if (currentPromptIndex + 1 === unlockedPrompts && unlockedPrompts < prompts.length) {
+        const newUnlocked = unlockedPrompts + 1;
+        setUnlockedPrompts(newUnlocked);
+        localStorage.setItem('ikigai-unlocked', newUnlocked.toString());
+      }
     }
     
     setReflectionText('');
     setIsFlipped(false);
     
-    if (currentPromptIndex < prompts.length - 1) {
+    if (mode === 'explore' && currentPromptIndex < prompts.length - 1) {
       setCurrentPromptIndex(currentPromptIndex + 1);
     }
   };
@@ -93,6 +127,9 @@ export default function IkigaiJournal() {
   const currentPrompt = prompts[currentPromptIndex];
 
   if (mode === 'home') {
+    const today = new Date().toISOString().split('T')[0];
+    const totalDays = Object.keys(dailyProgress).length;
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-purple-50 flex items-center justify-center p-6">
         <div className="max-w-2xl w-full text-center space-y-8">
@@ -103,14 +140,25 @@ export default function IkigaiJournal() {
             <p className="text-xl text-gray-600 max-w-lg mx-auto">
               A guided journey to discover your purpose through reflection
             </p>
+            {totalDays > 0 && (
+              <p className="text-lg text-purple-600 font-semibold">
+                🌟 {totalDays} day{totalDays !== 1 ? 's' : ''} of reflection
+              </p>
+            )}
           </div>
           
           <div className="grid gap-4 max-w-md mx-auto pt-8">
             <button
-              onClick={() => setMode('journey')}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-2xl text-lg font-semibold hover:shadow-xl transition-all hover:scale-105"
+              onClick={() => {
+                setMode('journey');
+                setCurrentPromptIndex(todayPromptIndex);
+              }}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-2xl text-lg font-semibold hover:shadow-xl transition-all hover:scale-105 relative"
             >
-              🌱 Start Journey Mode
+              🌱 {hasReflectedToday ? "Today's Reflection ✓" : "Start Today's Reflection"}
+              {hasReflectedToday && (
+                <span className="absolute top-2 right-2 w-3 h-3 bg-green-400 rounded-full"></span>
+              )}
             </button>
             <button
               onClick={() => setMode('explore')}
@@ -179,6 +227,9 @@ export default function IkigaiJournal() {
     );
   }
 
+  const today = new Date().toISOString().split('T')[0];
+  const todayReflection = reflections.find(r => r.date === today && r.promptId === prompts[currentPromptIndex].id);
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-amber-50 flex items-center justify-center p-6">
       <div className="max-w-2xl w-full">
@@ -190,9 +241,20 @@ export default function IkigaiJournal() {
             ← Home
           </button>
           <div className="text-sm font-medium text-gray-600">
-            Card {currentPromptIndex + 1} of {mode === 'journey' ? unlockedPrompts : prompts.length}
+            {mode === 'journey' ? (
+              <span>Today: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            ) : (
+              <span>Card {currentPromptIndex + 1} of {prompts.length}</span>
+            )}
           </div>
         </div>
+        
+        {mode === 'journey' && todayReflection && (
+          <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-2xl p-4 text-center">
+            <p className="text-green-800 font-semibold">✓ You've completed today's reflection!</p>
+            <p className="text-green-600 text-sm mt-1">Come back tomorrow for a new prompt</p>
+          </div>
+        )}
 
         <div className="perspective-1000">
           <div
@@ -223,12 +285,19 @@ export default function IkigaiJournal() {
                 <p className="text-sm font-semibold text-gray-500 mb-2">{currentPrompt.category}</p>
                 <p className="text-lg font-medium text-gray-800 mb-4">{currentPrompt.question}</p>
                 
-                <textarea
-                  value={reflectionText}
-                  onChange={(e) => setReflectionText(e.target.value)}
-                  placeholder="Write your reflection here..."
-                  className="flex-1 w-full p-4 border-2 border-gray-200 rounded-2xl resize-none focus:outline-none focus:border-purple-400 text-gray-700"
-                />
+                {todayReflection ? (
+                  <div className="flex-1 w-full p-4 bg-gray-50 rounded-2xl text-gray-700">
+                    <p className="text-sm text-gray-500 mb-2">Your reflection:</p>
+                    <p className="leading-relaxed">{todayReflection.text}</p>
+                  </div>
+                ) : (
+                  <textarea
+                    value={reflectionText}
+                    onChange={(e) => setReflectionText(e.target.value)}
+                    placeholder="Write your reflection here..."
+                    className="flex-1 w-full p-4 border-2 border-gray-200 rounded-2xl resize-none focus:outline-none focus:border-purple-400 text-gray-700"
+                  />
+                )}
                 
                 <div className="flex gap-3 mt-4">
                   <button
@@ -237,42 +306,43 @@ export default function IkigaiJournal() {
                   >
                     ← Back
                   </button>
-                  <button
-                    onClick={saveReflection}
-                    disabled={!reflectionText.trim()}
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Save & Continue
-                  </button>
+                  {!todayReflection && (
+                    <button
+                      onClick={saveReflection}
+                      disabled={!reflectionText.trim()}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Save Reflection
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex justify-between mt-6">
-          <button
-            onClick={prevCard}
-            disabled={currentPromptIndex === 0}
-            className="px-6 py-3 bg-white rounded-xl font-semibold text-gray-700 hover:shadow-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            ← Previous
-          </button>
-          <button
-            onClick={nextCard}
-            disabled={
-              mode === 'journey' 
-                ? currentPromptIndex >= unlockedPrompts - 1
-                : currentPromptIndex >= prompts.length - 1
-            }
-            className="px-6 py-3 bg-white rounded-xl font-semibold text-gray-700 hover:shadow-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            Next →
-          </button>
-        </div>
+        {/* Navigation - Only show in explore mode */}
+        {mode === 'explore' && (
+          <div className="flex justify-between mt-6">
+            <button
+              onClick={prevCard}
+              disabled={currentPromptIndex === 0}
+              className="px-6 py-3 bg-white rounded-xl font-semibold text-gray-700 hover:shadow-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ← Previous
+            </button>
+            <button
+              onClick={nextCard}
+              disabled={currentPromptIndex >= prompts.length - 1}
+              className="px-6 py-3 bg-white rounded-xl font-semibold text-gray-700 hover:shadow-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
 
