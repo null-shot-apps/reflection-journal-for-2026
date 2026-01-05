@@ -127,7 +127,6 @@ export default function IkigaiJournal() {
   const currentPrompt = prompts[currentPromptIndex];
 
   if (mode === 'home') {
-    const today = new Date().toISOString().split('T')[0];
     const totalDays = Object.keys(dailyProgress).length;
     
     return (
@@ -251,7 +250,7 @@ export default function IkigaiJournal() {
         
         {mode === 'journey' && todayReflection && (
           <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-2xl p-4 text-center">
-            <p className="text-green-800 font-semibold">✓ You've completed today's reflection!</p>
+            <p className="text-green-800 font-semibold">✓ You&apos;ve completed today&apos;s reflection!</p>
             <p className="text-green-600 text-sm mt-1">Come back tomorrow for a new prompt</p>
           </div>
         )}
@@ -344,6 +343,7 @@ export default function IkigaiJournal() {
     </div>
   );
 }
+
 
 
 
