@@ -242,7 +242,7 @@ export default function IkigaiJournal() {
           </button>
           <div className="text-sm font-medium text-gray-600">
             {mode === 'journey' ? (
-              <span>Today: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+              <span>Today: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             ) : (
               <span>Card {currentPromptIndex + 1} of {prompts.length}</span>
             )}
@@ -344,5 +344,6 @@ export default function IkigaiJournal() {
     </div>
   );
 }
+
 
 
